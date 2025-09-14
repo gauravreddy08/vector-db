@@ -1,4 +1,6 @@
-Vector Database API — Fast, minimal, containerized. See `docs/API.md` for full endpoint reference.
+## Vector Database API 
+
+Fast, minimal, containerized. See [`docs/API.md`](docs/API.md) for full endpoint reference.
 
 ### Features
 - **Indexes**: Linear scan, IVF clustering, NSW graph
@@ -19,26 +21,26 @@ Vector Database API — Fast, minimal, containerized. See `docs/API.md` for full
 - `docs/`: `API.md` with all endpoints
 
 ### Endpoints
-See `docs/API.md` for all routes, bodies, and responses.
+See [`docs/API.md`](docs/API.md) for all routes, bodies, and responses.
 
-### Docker
+### To run
 Build:
 ```bash
-docker compose build
+docker build -t vector-db .
 ```
 Run:
 ```bash
-docker compose up -d
+docker run -d -p 8000:8000 -e COHERE_API_KEY="your_api_key_here" --name vector-db-container vector-db
 ```
 Stop:
 ```bash
-docker compose down
+docker stop vector-db-container && docker rm vector-db-container
 ```
 App serves at `http://localhost:8000` (Swagger at `/docs`).
 
 ### Populate Sample Data (via docker exec)
 ```bash
-docker compose exec vector-db python examples/populate_db.py
+docker exec -it vector-db-container python examples/populate_db.py
 ```
 This creates libraries for Linear/IVF/NSW, inserts chunks, and builds indexes.
 
