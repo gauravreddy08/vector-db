@@ -9,6 +9,9 @@ Fast, minimal, containerized. See [`docs/API.md`](docs/API.md) for full endpoint
 - **Thread-safe in-memory stores** with service/repository layers
 - **RESTful FastAPI** with Pydantic schemas and clean DDD layout
 
+### Technical Choices
+This design follows Domain-Driven Design (DDD) principles with a modular, layered architecture that separates concerns cleanly. The repository pattern enables easy swapping of storage backends (currently in-memory, easily extensible to persistent stores), while the service layer encapsulates business logic independently of data access. The index implementations are pluggable and follow a common interface, making the system highly scalable for adding new vector search algorithms without changing existing code.
+
 ### Project Structure
 - `app/domain/`: Core entities and domain models
 - `app/services/`: Business logic (libraries, documents, chunks, index/search)
@@ -47,4 +50,10 @@ This creates libraries for Linear/IVF/NSW, inserts chunks, and builds indexes.
 ### Notes
 - Index params are accepted at library creation (e.g., IVF: `n_clusters`, `n_probes`; NSW knobs supported).
 - Search requires `query` and `k`; optional `filters` for metadata exact matches.
+
+> ###### AI Usage
+> This project leverages AI for:
+> - **Documentations**: API documentation, README, and code comments
+> - **Testing**: Test case generation and validation
+> - **Data Population**: Sample dataset creation and indexing
 
