@@ -19,7 +19,6 @@ class NSWIndex(BaseIndex, Filters):
                  multiplier: Optional[int] = None):
         super().__init__()
 
-        # Load configuration
         config = get_nsw_config()
 
         self._chunks: Dict[UUID, List[float]] = {}
@@ -30,14 +29,12 @@ class NSWIndex(BaseIndex, Filters):
         self._lock = rwlock.RWLockFair()
         self._similarity_function = similarity_function
 
-        # Hyperparameters
         self.M: int = max(1, int(m if m is not None else config.get("M", 8)))
         self.efConstruction: int = max(1, int(efConstruction if efConstruction is not None else config.get("efConstruction", 32)))
         self.efSearch: int = max(1, int(efSearch if efSearch is not None else config.get("efSearch", 64)))
         self.multiplier: int = int(multiplier if multiplier is not None else config.get("multiplier", 3))
 
     def index(self) -> bool:
-        # NSW is incremental; nothing to build
         return True
 
     def _beam_search(self, query_embedding: List[float], ef: int, start_ids: List[UUID]) -> List[Tuple[UUID, float]]:
@@ -45,10 +42,10 @@ class NSWIndex(BaseIndex, Filters):
             return []
 
         visited = set()
-        candidates = []  # max-heap via negative sim
-        results = []     # min-heap by sim
+        candidates = []
+        results = []
 
-        # Seed with provided starts
+
         for sid in start_ids:
             if sid not in self._chunks:
                 continue
@@ -96,7 +93,6 @@ class NSWIndex(BaseIndex, Filters):
                 self._entry_point = chunk_id
                 return
 
-            # Find construction neighbors
             neighbors_ranked = self._beam_search(embedding, self.efConstruction, [self._entry_point])
             selected = []
             for nid, _ in neighbors_ranked:
@@ -106,7 +102,6 @@ class NSWIndex(BaseIndex, Filters):
                 if len(selected) >= self.M:
                     break
 
-            # Connect bidirectionally
             if chunk_id not in self._graph:
                 self._graph[chunk_id] = set()
             for nid in selected:
@@ -137,7 +132,6 @@ class NSWIndex(BaseIndex, Filters):
             if chunk_id not in self._chunks:
                 return False
 
-            # Step 1-3: remove connections and node
             neighbors = set(self._graph.get(chunk_id, set()))
             for nbr in neighbors:
                 if nbr in self._graph:
@@ -149,23 +143,19 @@ class NSWIndex(BaseIndex, Filters):
                 del self._metadata[chunk_id]
             del self._chunks[chunk_id]
 
-            # Adjust entry point if needed
             if self._entry_point == chunk_id:
                 self._entry_point = next(iter(self._chunks.keys()), None)
 
-            # Step 4: repair each affected neighbor
             if not self._chunks or self._entry_point is None:
                 return True
 
             for u in neighbors:
                 if u not in self._chunks:
                     continue
-                # Remove all current edges for u (already removed edge to chunk_id)
                 for v in list(self._graph.get(u, set())):
                     self._graph[v].discard(u)
                 self._graph[u] = set()
 
-                # Reconnect u
                 ranked = self._beam_search(self._chunks[u], self.efConstruction, [self._entry_point])
                 selected = []
                 for nid, _ in ranked:
@@ -187,12 +177,9 @@ class NSWIndex(BaseIndex, Filters):
             if chunk_id not in self._chunks:
                 return False
 
-            # Update vector and metadata
             self._chunks[chunk_id] = embedding
             self._metadata[chunk_id] = metadata
 
-            # Recompute neighbors for this node
-            # Detach current connections
             for v in list(self._graph.get(chunk_id, set())):
                 self._graph[v].discard(chunk_id)
             self._graph[chunk_id] = set()

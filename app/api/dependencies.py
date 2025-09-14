@@ -13,14 +13,13 @@ from app.repositories.memory.library_repository import InMemoryLibraryRepository
 from app.repositories.memory.document_repository import InMemoryDocumentRepository
 from app.repositories.memory.chunk_repository import InMemoryChunkRepository
 
-# Create singleton instances (shared across all requests)
+# Singleton 
 _library_repo = InMemoryLibraryRepository()
 _document_repo = InMemoryDocumentRepository()
 _chunk_repo = InMemoryChunkRepository()
 _embedding_service = CohereEmbedding()
 _index_service = IndexService(chunk_repository=_chunk_repo, embedding_service=_embedding_service)
 
-# Create services with their dependencies
 _chunk_service = ChunkService(
     chunk_repository=_chunk_repo,
     library_repository=_library_repo,

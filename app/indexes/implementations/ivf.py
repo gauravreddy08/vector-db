@@ -22,33 +22,27 @@ class IVFIndex(BaseIndex, Filters):
                  multiplier: Optional[int] = None):
         super().__init__()
 
-        # Load configuration
         config = get_ivf_config()
         
         self._chunks: Dict[UUID, List[float]] = {}
         self._unprocessed_chunks: Dict[UUID, List[float]] = {}
         self._metadata: Dict[UUID, Dict[str, Any]] = {}
 
-        # IVF structures
         self._centroids: List[List[float]] = []
-        self._cluster_members: List[Set[UUID]] = []  
+        self._cluster_members: List[Set[UUID]] = []
 
         self._lock = rwlock.RWLockFair()
         self._similarity_function = similarity_function
 
-        # KMeans instance will be (re)initialized at index() once we know effective k
         self._kmeans: Optional[KMeans] = None
 
-        # Configuration - use provided values or fall back to config defaults
         self.multiplier = multiplier if multiplier is not None else config["multiplier"]
         self._cluster_ratio = max(0.0, cluster_ratio if cluster_ratio is not None else config["cluster_ratio"])
         self._probe_ratio = max(0.0, probe_ratio if probe_ratio is not None else config["probe_ratio"])
         
-        # Explicit overrides (can be None to enable computed defaults)
         self._explicit_n_clusters = n_clusters
         self._explicit_default_n_probes = default_n_probes if default_n_probes is not None else n_probes
         
-        # Computed at last index() run
         self._computed_n_probes: Optional[int] = None
 
     def add(self, chunk_id: UUID, embedding: List[float], metadata: Dict[str, Any]) -> None:
@@ -58,29 +52,24 @@ class IVFIndex(BaseIndex, Filters):
     
     def index(self) -> bool:
         with self._lock.gen_wlock():
-            # Merge buffered chunks
             if self._unprocessed_chunks:
                 self._chunks.update(self._unprocessed_chunks)
                 self._unprocessed_chunks = {}
 
             if not self._chunks:
-                # Nothing to index
                 self._centroids = []
                 self._cluster_members = []
                 return True
 
-            # Prepare data for kmeans
             chunk_ids = list(self._chunks.keys())
             embeddings = [self._chunks[cid] for cid in chunk_ids]
 
-            # Determine effective number of clusters
             n_points = len(embeddings)
             effective_k = self._explicit_n_clusters
             if effective_k is None:
                 effective_k = max(1, int(round(n_points * self._cluster_ratio)))
             effective_k = max(1, min(effective_k, n_points))
 
-            # Initialize KMeans with effective_k
             self._kmeans = KMeans(effective_k)
 
             centroids, labels = self._kmeans.fit(embeddings)
@@ -92,14 +81,12 @@ class IVFIndex(BaseIndex, Filters):
             k = len(centroids)
             cluster_members = [set() for _ in range(k)]
             for cid, lbl in zip(chunk_ids, labels):
-                # Guard for label being out of range due to any bug
                 if 0 <= lbl < k:
                     cluster_members[lbl].add(cid)
 
             self._centroids = centroids
             self._cluster_members = cluster_members
 
-            # Compute default n_probes if not explicitly provided
             if self._explicit_default_n_probes is not None:
                 probes = int(self._explicit_default_n_probes)
             else:
@@ -111,7 +98,6 @@ class IVFIndex(BaseIndex, Filters):
         with self._lock.gen_rlock():
             fetch_count = k * self.multiplier if filters else k
 
-            # If no clusters, search over all data (processed + unprocessed)
             if not self._centroids:
                 search_space = {**self._chunks, **self._unprocessed_chunks}
                 results = self._brute_force_search(search_space, query_embedding, fetch_count, filters)
@@ -119,14 +105,12 @@ class IVFIndex(BaseIndex, Filters):
 
             total_clusters = len(self._centroids)
 
-            # Determine initial probes from computed or ratio
             if self._computed_n_probes is not None and self._computed_n_probes > 0:
                 probes = min(max(1, self._computed_n_probes), total_clusters)
             else:
                 probes = max(1, int(round(total_clusters * self._probe_ratio)))
                 probes = min(probes, total_clusters)
 
-            # Rank all clusters by similarity (desc)
             ranked = []
             for idx, centroid in enumerate(self._centroids):
                 sim = self._similarity_function(centroid, query_embedding)
@@ -135,7 +119,6 @@ class IVFIndex(BaseIndex, Filters):
             ranked.sort(key=lambda x: x[0], reverse=True)
             ranked_indices = [idx for _, idx in ranked]
 
-            # Build search space: probe initial n_probes clusters first
             search_space = dict(self._unprocessed_chunks)
 
             for idx in ranked_indices:
@@ -156,7 +139,6 @@ class IVFIndex(BaseIndex, Filters):
                             k: int, 
                             filters: Optional[Dict[str, Any]] = None) -> List[Tuple[UUID, float]]:
         
-        # Slightly optimized O(n log k)
         heap = []
         for chunk_id, embedding in search_space.items():
             similarity = self._similarity_function(embedding, query_embedding)
@@ -182,7 +164,7 @@ class IVFIndex(BaseIndex, Filters):
             if chunk_id in self._chunks:
                 del self._chunks[chunk_id]
                 existed = True
-                # Remove from cluster membership if present
+                
                 for members in self._cluster_members:
                     members.discard(chunk_id)
             if chunk_id in self._metadata:
@@ -194,7 +176,6 @@ class IVFIndex(BaseIndex, Filters):
             if chunk_id not in self._chunks and chunk_id not in self._unprocessed_chunks:
                 return False
 
-            # Move to unprocessed with new embedding to be re-indexed later
             if chunk_id in self._chunks:
                 del self._chunks[chunk_id]
                 for members in self._cluster_members:
