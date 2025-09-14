@@ -8,6 +8,7 @@ from app.domain.models import LibraryModel
 class IndexTypeEnum(str, Enum):
     LINEAR = "linear"
     IVF = "ivf"
+    NSW = "nsw"
 
 class LibraryCreateRequest(BaseModel):
     """Request schema for creating a library"""

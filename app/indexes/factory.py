@@ -2,6 +2,7 @@
 from app.indexes.base import BaseIndex
 from app.indexes.implementations.linear import LinearIndex
 from app.indexes.implementations.ivf import IVFIndex
+from app.indexes.implementations.nsw import NSWIndex
 from app.domain.models import IndexModel
 
 def create_index(index_type: str, params: dict | None = None) -> BaseIndex:
@@ -24,5 +25,9 @@ def create_index(index_type: str, params: dict | None = None) -> BaseIndex:
         allowed = {"n_clusters", "n_probes", "cluster_ratio", "probe_ratio", "multiplier"}
         safe_params = {k: v for k, v in (params or {}).items() if k in allowed}
         return IVFIndex(**safe_params)
+    if index_type == IndexModel.NSW.value:
+        allowed_nsw = {"m", "efConstruction", "efSearch", "multiplier"}
+        safe_params = {k: v for k, v in (params or {}).items() if k in allowed_nsw}
+        return NSWIndex(**safe_params)
     else:
         raise ValueError(f"Unsupported index type: {index_type}")

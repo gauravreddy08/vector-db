@@ -5,19 +5,26 @@ import heapq
 from app.indexes.base import BaseIndex
 from app.indexes.filters.engine import Filters
 from app.utils.similarity import cosine_similarity
+from app.config import get_linear_config
 
 from readerwriterlock import rwlock
 
 class LinearIndex(BaseIndex, Filters):
-    def __init__(self, similarity_function: Callable[[List[float], List[float]], float] = cosine_similarity):
+    def __init__(self, 
+                 similarity_function: Callable[[List[float], List[float]], float] = cosine_similarity,
+                 multiplier: Optional[int] = None):
         super().__init__()
+
+        # Load configuration
+        config = get_linear_config()
 
         self._chunks: Dict[UUID, List[float]] = {}
         self._metadata: Dict[UUID, Dict[str, Any]] = {}
         self._lock = rwlock.RWLockFair()
         self._similarity_function = similarity_function
 
-        self.multiplier = 3 # Multiplier for the number of results to return when filters are applied
+        # Use provided multiplier or fall back to config default
+        self.multiplier = multiplier if multiplier is not None else config["multiplier"]
 
     def add(self, chunk_id: UUID, embedding: List[float], metadata: Dict[str, Any]) -> None:
         with self._lock.gen_wlock():

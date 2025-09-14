@@ -4,6 +4,9 @@ from app.indexes.base import BaseIndex
 from app.indexes.factory import create_index
 from app.exceptions import AlreadyExistsError, IndexError
 from app.indexes.implementations.ivf import IVFIndex
+from app.utils.embedding import CohereEmbedding
+from app.domain.models import ChunkModel
+from app.repositories.base import BaseRepository
 
 class IndexService:
     """
@@ -11,9 +14,11 @@ class IndexService:
     Acts as a registry for creating, retrieving, and destroying index instances as libraries are created and deleted.
     """
     
-    def __init__(self):
-        """Initialize the IndexService with an empty dictionary of active indexes."""
+    def __init__(self, chunk_repository: BaseRepository, embedding_service: CohereEmbedding):
+        """Initialize the IndexService with dependencies and active index registry."""
         self._active_indexes: Dict[UUID, BaseIndex] = {}
+        self._embedding_service = embedding_service
+        self._chunk_repository = chunk_repository
     
     def create_index_for_library(self, library_id: UUID, index_type: str, params: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -70,9 +75,13 @@ class IndexService:
 
         index.index()
 
-    def search(self, library_id: UUID, query_embedding: List[float], k: int,
-               filters: Optional[Dict[str, Any]] = None) -> List[Tuple[UUID, float]]:
+    def search(self, library_id: UUID, query_text: str, k: int,
+               filters: Optional[Dict[str, Any]] = None) -> List[Tuple[ChunkModel, float]]:
         index = self.get_index(library_id)
         if not index:
             raise IndexError(f"No index found for library {library_id}")
-        return index.search(query_embedding, k, filters=filters)
+        # Generate query embedding from raw text using the embedding service
+        query_embedding = self._embedding_service.embed(query_text, input_type="search_query")
+        results = index.search(query_embedding, k, filters=filters)
+        results = [(self._chunk_repository.get_by_id(result[0]), result[1]) for result in results]
+        return results

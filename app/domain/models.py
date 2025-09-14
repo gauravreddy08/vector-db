@@ -7,6 +7,7 @@ from enum import Enum
 class IndexModel(Enum):
     LINEAR = "linear"
     IVF = "ivf"
+    NSW = "nsw"
 
 class ChunkModel(BaseModel):
     """

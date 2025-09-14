@@ -6,6 +6,7 @@ from app.indexes.base import BaseIndex
 from app.indexes.filters.engine import Filters
 from app.utils.similarity import cosine_similarity
 from app.utils.helper_functions.kmeans import KMeans
+from app.config import get_ivf_config
 
 from readerwriterlock import rwlock
 
@@ -16,15 +17,16 @@ class IVFIndex(BaseIndex, Filters):
                  similarity_function: Callable[[List[float], List[float]], float] = cosine_similarity,
                  default_n_probes: Optional[int] = None,
                  n_probes: Optional[int] = None,
-                 cluster_ratio: float = 0.05,
-                 probe_ratio: float = 0.2,
-                 multiplier: int = 3):
+                 cluster_ratio: Optional[float] = None,
+                 probe_ratio: Optional[float] = None,
+                 multiplier: Optional[int] = None):
         super().__init__()
 
+        # Load configuration
+        config = get_ivf_config()
+        
         self._chunks: Dict[UUID, List[float]] = {}
-
         self._unprocessed_chunks: Dict[UUID, List[float]] = {}
-
         self._metadata: Dict[UUID, Dict[str, Any]] = {}
 
         # IVF structures
@@ -37,13 +39,15 @@ class IVFIndex(BaseIndex, Filters):
         # KMeans instance will be (re)initialized at index() once we know effective k
         self._kmeans: Optional[KMeans] = None
 
-        # Configuration
-        self.multiplier = multiplier  # Fetch extra when filters are applied
-        self._cluster_ratio = max(0.0, cluster_ratio)
-        self._probe_ratio = max(0.0, probe_ratio)
+        # Configuration - use provided values or fall back to config defaults
+        self.multiplier = multiplier if multiplier is not None else config["multiplier"]
+        self._cluster_ratio = max(0.0, cluster_ratio if cluster_ratio is not None else config["cluster_ratio"])
+        self._probe_ratio = max(0.0, probe_ratio if probe_ratio is not None else config["probe_ratio"])
+        
         # Explicit overrides (can be None to enable computed defaults)
         self._explicit_n_clusters = n_clusters
         self._explicit_default_n_probes = default_n_probes if default_n_probes is not None else n_probes
+        
         # Computed at last index() run
         self._computed_n_probes: Optional[int] = None
 

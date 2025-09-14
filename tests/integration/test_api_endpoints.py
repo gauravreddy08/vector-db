@@ -25,8 +25,8 @@ def client():
     library_repo = InMemoryLibraryRepository()
     document_repo = InMemoryDocumentRepository()
     chunk_repo = InMemoryChunkRepository()
-    index_service = IndexService()
     embedding = FakeEmbedding()
+    index_service = IndexService(chunk_repo, embedding)
 
     # Rebuild services graph mirroring app.api.dependencies
     from app.services.chunk_service import ChunkService
@@ -287,11 +287,9 @@ class TestSearch:
         r = client.post(f"/v1/libraries/{lib_id}/index")
         assert r.status_code == 200
 
-        # Build a query embedding for the exact text of the first chunk
-        query = FakeEmbedding().embed("alpha")
         r = client.post(
             f"/v1/libraries/{lib_id}/search",
-            json={"embedding": query, "k": 3},
+            json={"query": "alpha", "k": 3},
         )
         assert r.status_code == 200
         results = r.json()["results"]
@@ -304,10 +302,9 @@ class TestSearch:
         assert r.status_code == 200
 
         # Query doesn't matter for filter membership; ensure only 'tag' == 'x' returned
-        query = FakeEmbedding().embed("random-query")
         r = client.post(
             f"/v1/libraries/{lib_id}/search",
-            json={"embedding": query, "k": 5, "filters": {"tag": "x"}},
+            json={"query": "random-query", "k": 5, "filters": {"tag": "x"}},
         )
         assert r.status_code == 200
         ids_with_tag_x = {c["id"] for c in chunks if c["metadata"].get("tag") == "x"}
@@ -320,9 +317,9 @@ class TestSearch:
         bogus_lib_id = uuid4()
         r = client.post(
             f"/v1/libraries/{bogus_lib_id}/search",
-            json={"embedding": [0.1, 0.2, 0.3], "k": 2},
+            json={"query": "q", "k": 2},
         )
-        assert r.status_code == 500
+        assert r.status_code == 400  # IndexError returns 400, not 500
 
     def test_search_linear_invalid_k_zero_and_negative(self, client):
         lib_id, _ = self.setup_library_with_chunks(client, index_type="linear")
@@ -331,13 +328,13 @@ class TestSearch:
         # k == 0
         r0 = client.post(
             f"/v1/libraries/{lib_id}/search",
-            json={"embedding": [0.1, 0.2, 0.3], "k": 0},
+            json={"query": "q", "k": 0},
         )
         assert r0.status_code == 422
         # k < 0
         rneg = client.post(
             f"/v1/libraries/{lib_id}/search",
-            json={"embedding": [0.1, 0.2, 0.3], "k": -1},
+            json={"query": "q", "k": -1},
         )
         assert rneg.status_code == 422
 
@@ -350,11 +347,84 @@ class TestSearch:
         # Works end-to-end even if params are unused by LinearIndex
         client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "alpha", "metadata": {}})
         assert client.post(f"/v1/libraries/{lib_id}/index").status_code == 200
-        query = FakeEmbedding().embed("alpha")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 1})
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "alpha", "k": 1})
         assert r.status_code == 200
         assert len(r.json()["results"]) == 1
 
+    def test_search_nsw_basic_flow(self, client):
+        lib = client.post(
+            "/v1/libraries/",
+            json={"name": "nsw-lib", "index_type": "nsw", "index_params": {"m": 6, "efConstruction": 16, "efSearch": 32}},
+        ).json()
+        lib_id = lib["id"]
+        created = []
+        for text, tag in [("alpha", "x"), ("beta", "y"), ("gamma", "x"), ("delta", "z"), ("epsilon", "y")]:
+            resp = client.post(
+                f"/v1/libraries/{lib_id}/chunks/",
+                json={"text": text, "metadata": {"tag": tag}},
+            )
+            assert resp.status_code == 201
+            created.append(resp.json())
+
+        # NSW index() is a no-op, but call to ensure endpoint works
+        assert client.post(f"/v1/libraries/{lib_id}/index").status_code == 200
+
+        # Query for exact 'gamma' match
+        r = client.post(
+            f"/v1/libraries/{lib_id}/search",
+            json={"query": "gamma", "k": 3},
+        )
+        assert r.status_code == 200
+        results = r.json()["results"]
+        assert 1 <= len(results) <= 3
+        gamma_id = next(c["id"] for c in created if c["text"] == "gamma")
+        assert results[0]["chunk_id"] == gamma_id
+
+    def test_search_nsw_with_filters(self, client):
+        lib = client.post(
+            "/v1/libraries/",
+            json={"name": "nsw-lib2", "index_type": "nsw"},
+        ).json()
+        lib_id = lib["id"]
+        created = []
+        for text, tag in [("alpha", "x"), ("beta", "y"), ("gamma", "x"), ("delta", "z")]:
+            created.append(
+                client.post(
+                    f"/v1/libraries/{lib_id}/chunks/",
+                    json={"text": text, "metadata": {"tag": tag}},
+                ).json()
+            )
+
+        r = client.post(
+            f"/v1/libraries/{lib_id}/search",
+            json={"query": "random", "k": 5, "filters": {"tag": "x"}},
+        )
+        assert r.status_code == 200
+        ids_with_tag_x = {c["id"] for c in created if c["metadata"].get("tag") == "x"}
+        returned = {item["chunk_id"] for item in r.json()["results"]}
+        assert returned.issubset(ids_with_tag_x)
+        assert len(returned) == len(ids_with_tag_x)
+
+    def test_nsw_update_and_search(self, client):
+        lib = client.post(
+            "/v1/libraries/",
+            json={"name": "nsw-lib3", "index_type": "nsw"},
+        ).json()
+        lib_id = lib["id"]
+        c = client.post(
+            f"/v1/libraries/{lib_id}/chunks/",
+            json={"text": "old", "metadata": {}},
+        ).json()
+        # index is no-op
+        assert client.post(f"/v1/libraries/{lib_id}/index").status_code == 200
+        # update chunk text
+        assert client.patch(f"/v1/libraries/{lib_id}/chunks/{c['id']}", json={"text": "new"}).status_code == 200
+        r = client.post(
+            f"/v1/libraries/{lib_id}/search",
+            json={"query": "new", "k": 1},
+        )
+        assert r.status_code == 200
+        assert r.json()["results"][0]["chunk_id"] == c["id"]
 
 class TestIVF:
     def test_create_library_ivf_and_index_params_echoed(self, client):
@@ -372,8 +442,7 @@ class TestIVF:
         # Add chunks but DO NOT build index
         a = client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "alpha", "metadata": {}}).json()
         b = client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "beta", "metadata": {}}).json()
-        query = FakeEmbedding().embed("alpha")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 2})
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "alpha", "k": 2})
         assert r.status_code == 200
         top = r.json()["results"][0]["chunk_id"]
         assert top == a["id"]
@@ -391,8 +460,7 @@ class TestIVF:
         r = client.post(f"/v1/libraries/{lib_id}/index")
         assert r.status_code == 200
         # Perform a search and ensure sensible results length and validity
-        query = FakeEmbedding().embed("t5")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 3})
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "t5", "k": 3})
         assert r.status_code == 200
         results = r.json()["results"]
         assert 1 <= len(results) <= 3
@@ -410,8 +478,7 @@ class TestIVF:
         r = client.post(f"/v1/libraries/{lib_id}/index")
         assert r.status_code == 200
 
-        query = FakeEmbedding().embed("gamma")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 3})
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "gamma", "k": 3})
         assert r.status_code == 200
         top = r.json()["results"][0]["chunk_id"]
         gamma_id = next(c["id"] for c in created if c["text"] == "gamma")
@@ -428,8 +495,7 @@ class TestIVF:
         assert r.status_code == 200
         # Rebuild IVF to re-cluster
         assert client.post(f"/v1/libraries/{lib_id}/index").status_code == 200
-        query = FakeEmbedding().embed("zzz")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 1})
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "zzz", "k": 1})
         assert r.status_code == 200
         assert r.json()["results"][0]["chunk_id"] == c["id"]
 
@@ -439,8 +505,7 @@ class TestIVF:
         a = client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "alpha", "metadata": {}}).json()
         b = client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "beta", "metadata": {}}).json()
         assert client.post(f"/v1/libraries/{lib_id}/index").status_code == 200
-        query = FakeEmbedding().embed("alpha")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 10})
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "alpha", "k": 10})
         assert r.status_code == 200
         results = r.json()["results"]
         assert len(results) == 2
@@ -448,10 +513,9 @@ class TestIVF:
     def test_ivf_invalid_k_zero_and_negative(self, client):
         lib = client.post("/v1/libraries/", json={"name": "ivf-k", "index_type": "ivf"}).json()
         lib_id = lib["id"]
-        query = FakeEmbedding().embed("alpha")
-        r0 = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 0})
+        r0 = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "alpha", "k": 0})
         assert r0.status_code == 422
-        rneg = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": -5})
+        rneg = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "alpha", "k": -5})
         assert rneg.status_code == 422
 
     def test_ivf_negative_params_are_clamped_and_search_works(self, client):
@@ -461,8 +525,8 @@ class TestIVF:
         client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "alpha", "metadata": {}})
         client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "beta", "metadata": {}})
         assert client.post(f"/v1/libraries/{lib_id}/index").status_code == 200
-        query = FakeEmbedding().embed("alpha")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 2})
+
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "alpha", "k": 2})
         assert r.status_code == 200
         assert len(r.json()["results"]) >= 1
 
@@ -472,8 +536,7 @@ class TestIVF:
         lib_id = lib["id"]
         client.post(f"/v1/libraries/{lib_id}/chunks/", json={"text": "alpha", "metadata": {}})
         assert client.post(f"/v1/libraries/{lib_id}/index").status_code == 200
-        query = FakeEmbedding().embed("alpha")
-        r = client.post(f"/v1/libraries/{lib_id}/search", json={"embedding": query, "k": 1})
+        r = client.post(f"/v1/libraries/{lib_id}/search", json={"query": "alpha", "k": 1})
         assert r.status_code == 200
         assert len(r.json()["results"]) == 1
 

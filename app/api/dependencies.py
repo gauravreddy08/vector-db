@@ -17,8 +17,8 @@ from app.repositories.memory.chunk_repository import InMemoryChunkRepository
 _library_repo = InMemoryLibraryRepository()
 _document_repo = InMemoryDocumentRepository()
 _chunk_repo = InMemoryChunkRepository()
-_index_service = IndexService()
 _embedding_service = CohereEmbedding()
+_index_service = IndexService(chunk_repository=_chunk_repo, embedding_service=_embedding_service)
 
 # Create services with their dependencies
 _chunk_service = ChunkService(
