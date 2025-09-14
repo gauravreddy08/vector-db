@@ -22,7 +22,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Equals (eq) - Default Behavior
 ```json
 {
-  "text": "anime series",
+  "query": "anime series",
   "k": 5,
   "filters": {
     "anime_name": "Death Note"
@@ -33,7 +33,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Equals (explicit)
 ```json
 {
-  "text": "smartphone technology",
+  "query": "smartphone technology",
   "k": 5,
   "filters": {
     "product_name": {"eq": "iPhone 15 Pro"}
@@ -44,7 +44,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. Not Equals (ne)
 ```json
 {
-  "text": "AI technology",
+  "query": "AI technology",
   "k": 10,
   "filters": {
     "company": {"ne": "OpenAI"}
@@ -59,7 +59,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Greater Than (gt)
 ```json
 {
-  "text": "anime series",
+  "query": "anime series",
   "k": 10,
   "filters": {
     "rating": {"gt": 8.5}
@@ -70,7 +70,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Greater Than or Equal (gte)
 ```json
 {
-  "text": "Apple products",
+  "query": "Apple products",
   "k": 10,
   "filters": {
     "episodes": {"gte": 50}
@@ -81,7 +81,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. Less Than (lt)
 ```json
 {
-  "text": "recent anime",
+  "query": "recent anime",
   "k": 5,
   "filters": {
     "episodes": {"lt": 50}
@@ -92,7 +92,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 4. Less Than or Equal (lte)
 ```json
 {
-  "text": "completed anime",
+  "query": "completed anime",
   "k": 10,
   "filters": {
     "rating": {"lte": 9.0}
@@ -107,7 +107,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. After Specific Date (gt)
 ```json
 {
-  "text": "modern technology",
+  "query": "modern technology",
   "k": 10,
   "filters": {
     "release_date": {"gt": "2020-01-01"}
@@ -118,7 +118,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. From Specific Date (gte)
 ```json
 {
-  "text": "recent innovations",
+  "query": "recent innovations",
   "k": 10,
   "filters": {
     "release_date": {"gte": "2022-01-01"}
@@ -129,7 +129,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. Before Specific Date (lt)
 ```json
 {
-  "text": "classic anime",
+  "query": "classic anime",
   "k": 5,
   "filters": {
     "release_date": {"lt": "2010-01-01"}
@@ -140,7 +140,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 4. Date Range Combination
 ```json
 {
-  "text": "2010s anime",
+  "query": "2010s anime",
   "k": 10,
   "filters": {
     "release_date": {
@@ -158,7 +158,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Contains (case-insensitive)
 ```json
 {
-  "text": "anime characters",
+  "query": "anime characters",
   "k": 10,
   "filters": {
     "genre": {"contains": "fantasy"}
@@ -169,7 +169,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Studio Name Contains
 ```json
 {
-  "text": "anime production",
+  "query": "anime production",
   "k": 5,
   "filters": {
     "studio": {"contains": "studio"}
@@ -180,7 +180,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. Product Name Contains
 ```json
 {
-  "text": "Apple devices",
+  "query": "Apple devices",
   "k": 5,
   "filters": {
     "product_name": {"contains": "pro"}
@@ -195,7 +195,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. In List (in)
 ```json
 {
-  "text": "premium technology",
+  "query": "premium technology",
   "k": 10,
   "filters": {
     "company": {"in": ["OpenAI", "Anthropic", "Apple"]}
@@ -206,7 +206,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Anime Genres In List
 ```json
 {
-  "text": "action anime",
+  "query": "action anime",
   "k": 10,
   "filters": {
     "genre": {"in": ["Dark Fantasy", "Supernatural", "Adventure"]}
@@ -217,7 +217,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. Price Range In List
 ```json
 {
-  "text": "affordable products",
+  "query": "affordable products",
   "k": 5,
   "filters": {
     "price_range": {"in": ["budget", "mid-range"]}
@@ -228,7 +228,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 4. Not In List (nin)
 ```json
 {
-  "text": "non-Apple technology",
+  "query": "non-Apple technology",
   "k": 10,
   "filters": {
     "company": {"nin": ["Apple"]}
@@ -239,7 +239,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 5. Exclude Specific Genres
 ```json
 {
-  "text": "anime series",
+  "query": "anime series",
   "k": 10,
   "filters": {
     "genre": {"nin": ["Romance", "Comedy"]}
@@ -254,7 +254,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Rating Range with Studio Filter
 ```json
 {
-  "text": "high quality anime",
+  "query": "high quality anime",
   "k": 5,
   "filters": {
     "rating": {
@@ -269,7 +269,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Recent Premium Products
 ```json
 {
-  "text": "latest technology",
+  "query": "latest technology",
   "k": 10,
   "filters": {
     "release_date": {"gte": "2022-01-01"},
@@ -282,7 +282,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. AI Models by Company and Type
 ```json
 {
-  "text": "language models",
+  "query": "language models",
   "k": 5,
   "filters": {
     "company": {"in": ["OpenAI", "Anthropic"]},
@@ -295,7 +295,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 4. Anime Episode Count and Status
 ```json
 {
-  "text": "anime series",
+  "query": "anime series",
   "k": 10,
   "filters": {
     "episodes": {
@@ -315,7 +315,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Product Features and Specs
 ```json
 {
-  "text": "advanced smartphone",
+  "query": "advanced smartphone",
   "k": 5,
   "filters": {
     "product_type": {"eq": "smartphone"},
@@ -329,7 +329,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Anime by Multiple Criteria
 ```json
 {
-  "text": "popular anime",
+  "query": "popular anime",
   "k": 10,
   "filters": {
     "rating": {"gte": 8.5},
@@ -344,7 +344,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. AI Technology Filtering
 ```json
 {
-  "text": "AI assistants",
+  "query": "AI assistants",
   "k": 5,
   "filters": {
     "model_type": {"in": ["Large Language Model", "Code Generation"]},
@@ -362,7 +362,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Overview Chunks Only
 ```json
 {
-  "text": "technology overview",
+  "query": "technology overview",
   "k": 10,
   "filters": {
     "chunk_type": {"eq": "overview"}
@@ -373,7 +373,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Technical Feature Chunks
 ```json
 {
-  "text": "product features",
+  "query": "product features",
   "k": 5,
   "filters": {
     "chunk_type": {"contains": "features"}
@@ -384,7 +384,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. Exclude Specific Chunk Types
 ```json
 {
-  "text": "product information",
+  "query": "product information",
   "k": 10,
   "filters": {
     "chunk_type": {"nin": ["overview", "specifications"]}
@@ -399,7 +399,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Episode Count Ranges
 ```json
 {
-  "text": "anime series length",
+  "query": "anime series length",
   "k": 10,
   "filters": {
     "episodes": {
@@ -413,7 +413,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Rating Thresholds
 ```json
 {
-  "text": "highly rated content",
+  "query": "highly rated content",
   "k": 5,
   "filters": {
     "rating": {"gt": 9.0}
@@ -428,7 +428,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 1. Case-Insensitive Studio Search
 ```json
 {
-  "text": "anime production quality",
+  "query": "anime production quality",
   "k": 5,
   "filters": {
     "studio": {"contains": "STUDIO"}
@@ -439,7 +439,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 2. Product Name Partial Match
 ```json
 {
-  "text": "Apple laptops",
+  "query": "Apple laptops",
   "k": 5,
   "filters": {
     "product_name": {"contains": "macbook"}
@@ -450,7 +450,7 @@ The vector database supports multiple filter operators for precise querying. Her
 ### 3. AI Model Architecture
 ```json
 {
-  "text": "AI technology",
+  "query": "AI technology",
   "k": 5,
   "filters": {
     "architecture": {"contains": "transformer"}
@@ -483,7 +483,7 @@ Use the same query across all three libraries to compare performance:
 ### Performance Test Query
 ```json
 {
-  "text": "advanced artificial intelligence technology",
+  "query": "advanced artificial intelligence technology",
   "k": 10
 }
 ```

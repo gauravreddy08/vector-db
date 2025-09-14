@@ -44,42 +44,47 @@ class NSWIndex(BaseIndex, Filters):
         visited = set()
         candidates = []
         results = []
+        candidates_set = set()  # Track what's already in candidates queue
 
-
+        # Initialize with start_ids, avoiding duplicates
         for sid in start_ids:
-            if sid not in self._chunks:
+            if sid not in self._chunks or sid in visited:
                 continue
+            visited.add(sid)
             sim = self._similarity_function(self._chunks[sid], query_embedding)
             heapq.heappush(candidates, (-sim, sid))
             heapq.heappush(results, (sim, sid))
+            candidates_set.add(sid)
             if len(results) > ef:
                 heapq.heappop(results)
 
         while candidates:
             neg_sim, node_id = heapq.heappop(candidates)
             current_sim = -neg_sim
-
-            if node_id in visited:
-                continue
-            visited.add(node_id)
+            candidates_set.discard(node_id)
 
             if len(results) >= ef and current_sim < results[0][0]:
                 break
 
             for neighbor in self._graph.get(node_id, set()):
-                if neighbor in visited:
+                if neighbor in visited or neighbor in candidates_set:
                     continue
                 sim = self._similarity_function(self._chunks[neighbor], query_embedding)
                 if len(results) < ef or sim > results[0][0]:
                     heapq.heappush(candidates, (-sim, neighbor))
                     heapq.heappush(results, (sim, neighbor))
+                    candidates_set.add(neighbor)
                     if len(results) > ef:
                         heapq.heappop(results)
 
-        out = []
+        # Convert results to list and deduplicate by ID (keeping highest similarity)
+        result_dict = {}
         while results:
             sim, nid = heapq.heappop(results)
-            out.append((nid, sim))
+            if nid not in result_dict or sim > result_dict[nid]:
+                result_dict[nid] = sim
+        
+        out = [(nid, sim) for nid, sim in result_dict.items()]
         out.sort(key=lambda x: x[1], reverse=True)
         return out
 
