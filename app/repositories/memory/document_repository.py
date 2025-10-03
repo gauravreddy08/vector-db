@@ -6,6 +6,10 @@ from readerwriterlock import rwlock
 from typing import Dict, Optional, List
 from uuid import UUID
 
+# CRUD operations for Document (DocumentModel)
+# Includes locking for thread safety
+# Also, includes ops for adding/removing chunks to/from a document
+
 class InMemoryDocumentRepository(BaseRepository):
     def __init__(self):
         self._documents: Dict[UUID, DocumentModel] = {}

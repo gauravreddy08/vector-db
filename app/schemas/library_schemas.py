@@ -1,3 +1,6 @@
+"""
+Library API schemas for request/response models.
+"""
 from pydantic import BaseModel, Field, validator
 from typing import Dict, Any, List, Optional
 from uuid import UUID

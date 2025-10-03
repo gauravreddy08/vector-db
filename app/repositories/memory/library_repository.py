@@ -6,6 +6,10 @@ from typing import Dict, Optional, List
 from uuid import UUID
 from readerwriterlock import rwlock
 
+# CRUD operations for Library (LibraryModel)
+# Includes locking for thread safety
+# Also, includes ops for adding/removing documents to/from a library
+
 class InMemoryLibraryRepository(BaseRepository):
     def __init__(self):
         self._libraries: Dict[UUID, LibraryModel] = {}

@@ -5,6 +5,9 @@ from readerwriterlock import rwlock
 from typing import Dict, Optional, List
 from uuid import UUID
 
+# CRUD operations for Chunk (ChunkModel)
+# Includes locking for thread safety
+
 class InMemoryChunkRepository(BaseRepository):
     def __init__(self):
         self._chunks: Dict[UUID, ChunkModel] = {}

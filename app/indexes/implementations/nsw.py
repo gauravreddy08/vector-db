@@ -42,26 +42,31 @@ class NSWIndex(BaseIndex, Filters):
             return []
 
         visited = set()
-        candidates = []
-        results = []
-        candidates_set = set()  # Track what's already in candidates queue
+        candidates = [] # Sources for BFS (Beam Search) [maxheap] [-current_sim, node_id]
+        results = [] # Final results, is bounded by ef (minheap) [current_sim, node_id]
+        candidates_set = set()  # Track whats already in candidates queue
 
         # Initialize with start_ids, avoiding duplicates
         for sid in start_ids:
-            if sid not in self._chunks or sid in visited:
+            if sid not in self._chunks:
                 continue
-            visited.add(sid)
             sim = self._similarity_function(self._chunks[sid], query_embedding)
             heapq.heappush(candidates, (-sim, sid))
-            heapq.heappush(results, (sim, sid))
             candidates_set.add(sid)
-            if len(results) > ef:
-                heapq.heappop(results)
 
         while candidates:
             neg_sim, node_id = heapq.heappop(candidates)
             current_sim = -neg_sim
             candidates_set.discard(node_id)
+
+            if node_id in visited:
+                continue
+            visited.add(node_id)
+
+            # Add the processed node to results (unique by visited)
+            heapq.heappush(results, (current_sim, node_id))
+            if len(results) > ef:
+                heapq.heappop(results)
 
             if len(results) >= ef and current_sim < results[0][0]:
                 break
@@ -70,23 +75,12 @@ class NSWIndex(BaseIndex, Filters):
                 if neighbor in visited or neighbor in candidates_set:
                     continue
                 sim = self._similarity_function(self._chunks[neighbor], query_embedding)
-                if len(results) < ef or sim > results[0][0]:
-                    heapq.heappush(candidates, (-sim, neighbor))
-                    heapq.heappush(results, (sim, neighbor))
-                    candidates_set.add(neighbor)
-                    if len(results) > ef:
-                        heapq.heappop(results)
+                heapq.heappush(candidates, (-sim, neighbor))
+                candidates_set.add(neighbor)
 
-        # Convert results to list and deduplicate by ID (keeping highest similarity)
-        result_dict = {}
-        while results:
-            sim, nid = heapq.heappop(results)
-            if nid not in result_dict or sim > result_dict[nid]:
-                result_dict[nid] = sim
-        
-        out = [(nid, sim) for nid, sim in result_dict.items()]
-        out.sort(key=lambda x: x[1], reverse=True)
-        return out
+        # Build sorted output from unique processed nodes
+        out_pairs = sorted(results, key=lambda x: x[0], reverse=True)
+        return [(nid, sim) for (sim, nid) in out_pairs]
 
     def add(self, chunk_id: UUID, embedding: List[float], metadata: Dict[str, Any]) -> None:
         with self._lock.gen_wlock():

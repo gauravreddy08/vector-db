@@ -1,6 +1,9 @@
 from typing import Dict, Any
 from uuid import UUID
 
+# This is Mixin class for the indexes
+# it attaches itself to  any index (linear, ivf, nsw) class and get's it's attr (metadata)
+
 class Filters:
     def __init__(self):
         if not hasattr(self, '_metadata'):
@@ -20,6 +23,7 @@ class Filters:
         
         return True
     
+    # if the filter variable is not present this method will add "eq" to the filter
     def _normalize_filters(self, filters: Dict[str, Any]) -> Dict[str, Any]:
         """Convert simple filters to operator format."""
         normalized = {}

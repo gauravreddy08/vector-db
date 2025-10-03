@@ -6,8 +6,6 @@ from typing import Dict, Any, Optional, List
 from uuid import UUID
 from datetime import datetime
 
-
-
 class ChunkCreateRequest(BaseModel):
     """Request schema for creating a chunk."""
     text: str = Field(..., min_length=1, description="Text content of the chunk")
@@ -26,7 +24,6 @@ class ChunkUpdateRequest(BaseModel):
         if self.text is None and self.metadata is None:
             raise ValueError('Either text or metadata must be provided for update')
         return self
-
 
 class ChunkResponse(BaseModel):
     """Response schema for chunk operations."""

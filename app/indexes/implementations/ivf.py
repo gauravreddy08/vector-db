@@ -15,7 +15,6 @@ class IVFIndex(BaseIndex, Filters):
     def __init__(self,
                  n_clusters: Optional[int] = None,
                  similarity_function: Callable[[List[float], List[float]], float] = cosine_similarity,
-                 default_n_probes: Optional[int] = None,
                  n_probes: Optional[int] = None,
                  cluster_ratio: Optional[float] = None,
                  probe_ratio: Optional[float] = None,
@@ -36,13 +35,23 @@ class IVFIndex(BaseIndex, Filters):
 
         self._kmeans: Optional[KMeans] = None
 
-        self.multiplier = multiplier if multiplier is not None else config["multiplier"]
-        self._cluster_ratio = max(0.0, cluster_ratio if cluster_ratio is not None else config["cluster_ratio"])
-        self._probe_ratio = max(0.0, probe_ratio if probe_ratio is not None else config["probe_ratio"])
+        # Params for IVF Configuration
+        # For Post filtering (get more (k*multiplier) results and then apply filters)
+        self.multiplier = multiplier if multiplier is not None else config["multiplier"] 
+
+        # Number of clusters to cluster the chunks into 
+        self._explicit_n_clusters = n_clusters 
+
+        # used when no explicit number of clusters is provided. takes a ratio of the total number of chunks to cluster the chunks into 
+        self._cluster_ratio = max(0.0, cluster_ratio if cluster_ratio is not None else config["cluster_ratio"]) 
+
+        # Number of probes to probe during search
+        self._explicit_n_probes = n_probes
+
+        # used when no explicit number of probes is provided. takes a ratio of the total number of clusters to probe during search
+        self._probe_ratio = max(0.0, probe_ratio if probe_ratio is not None else config["probe_ratio"]) 
         
-        self._explicit_n_clusters = n_clusters
-        self._explicit_default_n_probes = default_n_probes if default_n_probes is not None else n_probes
-        
+        # Number of probes to probe during search
         self._computed_n_probes: Optional[int] = None
 
     def add(self, chunk_id: UUID, embedding: List[float], metadata: Dict[str, Any]) -> None:
@@ -87,8 +96,8 @@ class IVFIndex(BaseIndex, Filters):
             self._centroids = centroids
             self._cluster_members = cluster_members
 
-            if self._explicit_default_n_probes is not None:
-                probes = int(self._explicit_default_n_probes)
+            if self._explicit_n_probes is not None:
+                probes = int(self._explicit_n_probes)
             else:
                 probes = int(max(1, round(len(self._centroids) * self._probe_ratio)))
             self._computed_n_probes = max(1, min(probes, len(self._centroids)))

@@ -34,7 +34,9 @@ class IndexService:
         if not index:
             raise IndexError(f"No index found for library {library_id}")
 
-        index.index()
+        success = index.index()
+        if not success:
+            raise IndexError(f"Failed to build index for library {library_id}")
 
     def search(self, library_id: UUID, query_text: str, k: int,
                filters: Optional[Dict[str, Any]] = None) -> List[Tuple[ChunkModel, float]]:
